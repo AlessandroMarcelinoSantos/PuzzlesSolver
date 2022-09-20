@@ -1,0 +1,176 @@
+DominosaSolver = (function () {
+    const height = Game.task.length, width = Game.task[0].length, length = width * height;
+    let Clusters = {
+        check: function (cell) {
+            const ds = 'rlud'.split('').filter(d => cell[d] && !cell[d].gameReference.tile);
+            if (ds.length === 2 && 'rurdluld'.includes(ds))
+                Cells.next(cell, ds);
+        },
+        next: function (cell, ds) {
+            let exits = [],
+                h = 'ruld'.indexOf(ds[0]),
+                v = 'ruld'.indexOf(ds[1]),
+                ho = (h + 1) % 4 + 1,
+                vo = (v + 1) % 4 + 1,
+                d = h,
+                next;
+            do {
+                if (next[d] && !next[d].gameReference.tile){
+                    next = next[d];
+
+                }
+                'rlud'.split('').filter(d => cell[d] && !cell[d].gameReference.tile);
+                next = next[d];
+                
+            }
+            while (exits.length < 2 || next !== cell)    
+        }
+    };
+    let Tiles = {
+        t: new Map(),
+        push: function (c1) {
+            'rd'.split('').forEach((c, i) => {
+                const c2 = c1[c];
+                if (c2) {
+                    const fl = c1.v === c2.v ? c1.I < c2.I : c1.v < c2.v,
+                        I = fl ? c1 : c2, // mInor value cell
+                        J = fl ? c2 : c1, // maJor value cell
+                        d = fl ? c : 'lu'[i], // direction from maJor to mInor 
+                        o = fl ? 'lu'[i] : c, // direction from mInor to maJor (d Opposite)
+                        tile = { id: I.v + J.v, I: I, J: J, d: d, o: o };
+                    Tiles.t.get(tile.id).push(tile);
+                    I.tiles.set(d, tile);
+                    J.tiles.set(o, tile);
+                }
+            })
+        },
+        check: function (tiles) {
+            if (tiles.length === 1)
+                Cells.pin(tiles[0]);
+            else if (tiles.length > 1) {
+                if (tiles.reduce((t1, t2, i, s) => t1.I === t2.I || t1 && t2.I === s[i - 1].I)) // if all mInor cells are the same
+                    Tiles.remove([...tiles[0].I.tiles.values()].filter(t => t.id !== tiles[0].id)); // remove all other tiles from Cells
+                else if (tiles.reduce((t1, t2, i, s) => t1.J === t2.J || t1 && t2.J === s[i - 1].J)) // all maJor cells are the same
+                    Tiles.remove([...tiles[0].J.tiles.values()].filter(t => t.id !== tiles[0].id)); // remove all other tiles from Cells
+            }
+        },
+        remove: function (tiles) {
+            tiles.forEach(tile => {
+                Cells.remove(tile);
+                Tiles.print(tile, 1);
+            })
+        },
+        print: function (tile, borders) {
+            const fl = tile.I.i < tile.J.i,
+                startPoint = fl ? tile.I.gameReference : tile.J.gameReference,
+                endPoint = fl ? tile.J.gameReference : tile.I.gameReference;
+            if (borders) {
+                Math.abs(tile.I.i - tile.J.i) === 1 ? startPoint.status.borders.right = 1 : startPoint.status.borders.bottom = 1;
+                startPoint.status.type = 'border';
+            }
+            else {
+                Game.drawCellStatus(endPoint, endPoint.status);
+                Game.setCellState(endPoint, endPoint.status);
+            }
+            Game.drawCellStatus(startPoint, startPoint.status);
+            Game.setCellState(starPoint, startPoint.status);
+            Game.currentState.lastMove = {
+                cellStatus: startPoint.status,
+                startPoint: startPoint,
+                endPoint: endPoint,
+                cells: [startPoint],
+                direction: Math.abs(tile.I.i - tile.J.i) === 1 ? 'right' : 'down'
+            };
+            void Game.storeCurrentState();
+        }
+    };
+    Array(height ** 2).fill().forEach((e, i) => {
+        const f = (i / height) >> 0, l = i % height;
+        if (f <= l)
+            Tiles.t.set(('0' + f).slice(-2) + ('0' + l).slice(-2), []);
+    });
+    let Cells = {
+        c: Array(length).fill().map(() => ({})),
+        push: function (task, row, col) {
+            const i = row * width + col,
+                cell = Cells.c[i];
+            Object.assign(cell, {
+                i: i,
+                v: ('0' + task).slice(-2),
+                gameReference: {
+                    row: row,
+                    col: col,
+                    status: { tile: 0, borders: { right: 0, bottom: 0 } } //, type: 'tile'
+                },
+                r: col < width - 1 && Cells.c[i + 1],
+                u: row > 0 && Cells.c[i - width],
+                l: col > 0 && Cells.c[i + 1],
+                d: row < height - 1 && Cells.c[i + width],
+                c: null, //Cluster
+                tiles: new Map()
+            });
+        },
+        remove: function (tile) {
+            if (Tiles.t.has(tile.id))
+                Tiles.t.set(tile.id, Tiles.t.get(tile.id).filter(t => t !== tile));
+            tile.I.tiles.delete(tile.d);
+            tile.J.tiles.delete(tile.o);
+        },
+        pin: function (tile) {
+            const status = (Math.abs(tile.I.i - tile.J.i) > 1) * 1 + (tile.I.i > tile.J.i) * 2 + 1;
+            tile.I.gameReference.status.tile = status;
+            tile.J.gameReference.status.tile = (status + 1) % 4 + 1;
+            if (tile.I.i < tile.J.i)
+                tile.I.gameReference.status.type = 'tile';
+            else
+                tile.J.gameReference.status.type = 'tile';
+            Tiles.print(tile, 0);
+            tile.I.tiles.forEach(t => Cells.remove(t));
+            tile.J.tiles.forEach(t => Cells.remove(t));
+            tile.I.tiles.clear();
+            tile.J.tiles.clear();
+            Tiles.remove(Tiles.t.get(tile.id));
+        },
+        check: function (cell) {
+            if (cell.tiles.size === 1)
+                Cells.pin([...cell.tiles.values()][0]);
+            else
+                if (cell.tiles.size === 2) {
+                    const tiles = [...cell.tiles.values()],
+                        oCells = tiles.map(t => t.I != cell && t.I || t.J != cell && t.J);
+                    [...oCells[0].tiles.values()].forEach(t => t.id === tiles[1].id && t !== tiles[0] && Tiles.remove([t]));
+                    [...oCells[1].tiles.values()].forEach(t => t.id === tiles[0].id && t !== tiles[1] && Tiles.remove([t]));
+                    // if (oCells.every(c => c.tiles.size === 2))
+                    //     oCells.forEach(oCell =>
+                    //         oCell.tiles.forEach((tile, d) => {
+                    //             if (tile.I !== cell && tile.J !== cell) {
+                    //                 const exitTiles = oCells
+                    //                     .map(c => [...c.tiles.values()]
+                    //                         .filter(t => !tiles.includes(t))).flat(),
+                    //                     exitCells = exitTiles.map(t => oCells.includes(t.I) && t.J || oCells.includes(t.J) && t.I);
+                    //                 if ([...new Set(exitCells)].length === 1)
+                    //                     Tiles.remove([...exitCells[0].tiles.values()].filter(t => !exitTiles.includes(t)));
+                    //             }
+                    //         })
+                    //     )
+                }
+            if (cell.tiles.size === 2) {
+            }
+            if (cell.tiles.size > 1) {
+                const tiles = [...cell.tiles.values()];
+                if (tiles.reduce((t1, t2, i, s) => t1.id === t2.id || t1 && t2.id === s[i - 1].id)) // if all tiles of a cell are equivalents
+                    Tiles.remove(Tiles.t.get(tiles[0].id).filter(t => !tiles.includes(t))); // remove all other tiles from Tiles
+            }
+        }
+    }
+    Game.task.forEach((row, r) =>
+        row.forEach((task, c) => Cells.push(task, r, c))
+    );
+    Cells.c.forEach(cell => Tiles.push(cell));
+    let check = function () {
+        Tiles.t.forEach(t => Tiles.check(t));
+        Cells.c.forEach(c => Cells.check(c));
+    }
+    for (let i = 0; i < width; i++) check();
+    return { Tiles: Tiles, Cells: Cells, check: check }
+})()
