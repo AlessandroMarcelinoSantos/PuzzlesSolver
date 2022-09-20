@@ -1,0 +1,196 @@
+PipesSolver = (function () {/*/let getPipe = function (id) { return Pipes.p.find(p => p.id === id); }/***/
+    const height = Game.task.length,
+        width = Game.task[0].length,
+        length = height * width,
+        statusList = Array(14).fill().map((n, task) => [1, 2, 4, 8].map(st => (task + 1) * st % 15)); // Matrix to define pipe final status
+    let Clusters = {
+        new: function (pipe) {
+            pipe.clt = {
+                edg: pipe.edg,  // Sum of all open ends on clt (even open dead ends)
+                ode: 0,             // Sum of all Open Dead Ends on clt
+                pipes: [pipe]/*/, color: '#' + Array(3).fill().map(clt => ((30 + Math.random() * 200) >> 0).toString(16)).join('')/* Color to visualy identify each clt */
+            }/*/; Pipes.print(pipe)/***/
+        },
+        merge: function (to, from) {
+            to.pipes = to.pipes.concat(from.pipes.map(p => { p.clt = to;/*/ Pipes.print(p);/***/ return p }));
+            to.edg += from.edg - 2;
+            to.ode += from.ode;
+        },
+        add: function (pipe, clt) {
+            clt.pipes.push(pipe);
+            pipe.clt = clt;
+            clt.edg += pipe.edg - 2;/*/ Pipes.print(pipe);/***/
+        },
+        set: function (pipe, dir) {
+            if (pipe.clt) {
+                if (pipe[dir].clt)
+                    Clusters.merge(pipe.clt, pipe[dir].clt);
+                else
+                    Clusters.add(pipe[dir], pipe.clt);
+            }
+            else {
+                if (!pipe[dir].clt)
+                    Clusters.new(pipe[dir]);
+                Clusters.add(pipe, pipe[dir].clt);
+            }
+        },
+        ends: function (pipe, dir) {
+            let ret = 0,
+                extPipe;
+            if (dir !== undefined) {
+                if (pipe[dir].type === 'I' && pipe[dir].opn.includes(dir))
+                    extPipe = pipe[dir][dir];
+                else
+                    extPipe = pipe[dir];
+            }
+            else
+                extPipe = pipe;
+            if (extPipe.clt)
+                ret = extPipe.clt.edg - extPipe.clt.ode + extPipe.ode;
+            return ret;
+        }
+    };
+    let Pipes = {
+        p: Array(length).fill().map(() => ({})),
+        push: function (task, row, col) {
+            const i = row * width + col,
+                t = 'EELEILTELITLTT'[task - 1],
+                pipe = Pipes.p[i];
+            Object.assign(pipe, { /*/ id: ('0' + row).slice(-2) + ('0' + col).slice(-2) + t, div: Game.getDomElement({ row: row, col: col }).find('div')[0], /***/
+                mdt: '',        // Mandatory directions
+                blk: '',        // Blocked directions
+                opn: 'ruld',    // Openned directions
+                clt: null,      // Cluster
+                ode: 0,         // Open Dead Ends Count
+                u: Pipes.p[(length + i - width) % length],          // Up Pipe
+                d: Pipes.p[(i + width) % length],                   // Down Pipe
+                l: Pipes.p[row * width + (width + col - 1) % width],// Left Pipe
+                r: Pipes.p[row * width + (col + 1) % width],        // Right Pipe
+                type: t,
+                pin: false,
+                status: 0,
+                rc: { row: row, col: col }, // Pipe coordinates to Game functions
+                edg: '1223'['EILT'.indexOf(t)] * 1,
+                chk: false //Cheking
+            });
+            if (t === 'E')
+                Clusters.new(pipe); (/*Reset*/Pipes.pin(pipe, 0),/*Reset*//*/Game.getDomElement(pipe.rc)[0].id = pipe.id/***/ + 0)
+        },
+        pin: function (pipe, pin) {
+            if (pin && !Game.currentState.pinned[pipe.rc.row][pipe.rc.col])
+                pipe.pin = true;
+            Game.currentMove = {
+                cellStatus: statusList[Game.task[pipe.rc.row][pipe.rc.col] - 1].indexOf(pipe.status),
+                cells: [pipe.rc],
+                endPoint: pipe.rc,
+                pin: pin,
+                pinning: 0,
+                startPoint: pipe.rc
+            }
+            Game.drawCurrentMove();
+            Game.applyCurrentMoveToState();/*/Pipes.print(pipe);/***/
+        },/*/print: function (pipe) { pipe.clt && Game.getDomElement(pipe.rc).css('backgroundColor', pipe.pin ? '' : pipe.clt.color).find('span').css('backgroundColor', pipe.pin ? pipe.clt.color : ''); },/***/
+        fix: function (pipe, dir) {
+            if (pipe.mdt.length !== pipe.edg && !pipe.mdt.includes(dir)) {
+                pipe.mdt += dir;
+                pipe.opn = pipe.opn.replace(dir, '');
+                pipe.status |= 2 ** 'ruld'.indexOf(dir);
+                if (pipe.ode > 0) {
+                    pipe.clt.ode--;
+                    pipe.ode--;
+                }
+                const opp = 'ldru'['ruld'.indexOf(dir)];
+                if (!pipe[dir].mdt.includes(opp)) {
+                    Clusters.set(pipe, dir);
+                    Pipes.fix(pipe[dir], opp);
+                    Pipes.check(pipe[dir]);
+                }
+                if (pipe.mdt.length === pipe.edg) {
+                    Pipes.pin(pipe, true);
+                    pipe.opn.split('').forEach(op => Pipes.block(pipe, op));
+                }
+            }
+            return pipe.pin;
+        },
+        block: function (pipe, dir) {
+            if (pipe.blk.length !== 4 - pipe.edg && !pipe.blk.includes(dir)) {
+                pipe.blk += dir;
+                pipe.opn = pipe.opn.replace(dir, '');
+                const opp = 'ldru'['ruld'.indexOf(dir)];
+                if (!pipe[dir].blk.includes(opp)) {
+                    Pipes.block(pipe[dir], opp);
+                    Pipes.check(pipe[dir]);
+                }
+                if (pipe.blk.length === 4 - pipe.edg)
+                    pipe.opn.split('').forEach(op => Pipes.fix(pipe, op));
+            }
+            return pipe.pin;
+        },
+        deadEndEdge: function (pipe) {
+            let opn = pipe.opn;
+            if (pipe.ode === 0) {
+                opn.split('').forEach(dir => {
+                    if (Clusters.ends(pipe, dir) === 1)
+                        opn = opn.replace(dir, '');
+                });
+                if ('LT'.includes(pipe.type) && opn === '' && pipe.mdt !== '') {
+                    pipe.ode = pipe.edg - pipe.mdt.length;
+                    pipe.clt.ode += pipe.ode;
+                }
+                else if (opn.length === 1 && !(pipe.mdt !== '' && (Clusters.ends(pipe) - pipe.edg + pipe.mdt.length))) {
+                    Pipes.fix(pipe, opn);
+                    if (!pipe.pin) {
+                        pipe.ode = pipe.edg - pipe.mdt.length;
+                        pipe.clt.ode += pipe.ode;
+                    }
+                }
+            }
+            return pipe.pin;
+        },
+        check: function (pipe) {
+            if (!pipe.chk && !pipe.pin && !Pipes.deadEndEdge(pipe)) {
+                pipe.chk = true;
+                if (Game.plSize < 10) {// Block borders for unwrap games
+                    if (pipe.rc.row === 0 && !pipe.blk.includes('u'))
+                        Pipes.block(pipe, 'u');
+                    if (pipe.rc.col === 0 && !pipe.blk.includes('l'))
+                        Pipes.block(pipe, 'l');
+                }
+                pipe.opn.split('').some(dir => {
+                    if (pipe.clt !== null && pipe.clt === pipe[dir].clt)
+                        Pipes.block(pipe, dir);
+                    const opp = 'ldru'['ruld'.indexOf(dir)];
+                    switch (pipe.type) {
+                        case 'I':
+                            if (pipe.mdt === opp)
+                                Pipes.fix(pipe, dir);
+                            else if (pipe.blk === opp)
+                                Pipes.block(pipe, dir);
+                            else if (pipe[dir].clt
+                                && (pipe[dir].clt === pipe[opp].clt
+                                    || Clusters.ends(pipe, dir) === 1 && Clusters.ends(pipe, opp) === 1))
+                                [dir, opp].forEach(dir => Pipes.block(pipe, dir));
+                            break;
+                        case 'L':
+                            if (pipe.blk === opp)
+                                Pipes.fix(pipe, dir);
+                            else if (pipe.mdt === opp)
+                                Pipes.block(pipe, dir);
+                            break;
+                    }
+                    return pipe.pin;
+                });
+                pipe.chk = false;
+            }
+        }
+    }
+    Game.task.forEach((row, r) =>
+        row.forEach((task, c) => Pipes.push(task, r, c))
+    );
+    let check = function () {
+        Pipes.p.forEach(p => Pipes.check(p));
+    };
+    for (let i = 0; i < 5; i++)
+        check();
+    return { /*/check: check/***//*/, Pipes: Pipes/***//*/, getPipe: getPipe/***/ };
+})()
