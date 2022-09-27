@@ -1,4 +1,7 @@
 //9985070
+$('#btCont').css("display", "none");
+$('#Skyscraper').css("display", "none");
+$('#MainContainer').css("position", "absolute");
 DominosaSolver = (function () {
     const height = Game.task.length, width = Game.task[0].length, length = width * height;
     let Tiles = {
@@ -12,7 +15,7 @@ DominosaSolver = (function () {
                         J = fl ? c2 : c1, // maJor value cell
                         d = fl ? c : 'lu'[i], // direction from maJor to mInor 
                         o = fl ? 'lu'[i] : c, // direction from mInor to maJor (d Opposite)
-                        tile = { id: I.v + J.v, I: I, J: J, d: d, o: o };
+                        tile = { id: I.v + J.v, I: I, J: J, d: d, o: o, c: [I, J] };
                     Tiles.t.get(tile.id).push(tile);
                     I.tiles.set(d, tile);
                     J.tiles.set(o, tile);
@@ -23,10 +26,30 @@ DominosaSolver = (function () {
             if (tiles.length === 1)
                 Tiles.pin(tiles[0]);
             else if (tiles.length > 1) {
-                if ([...tiles.values()].every(t => t.I === tiles[0].I || t.J === tiles[0].I)) // if all mInor cells are the same
-                    Tiles.remove([...tiles[0].I.tiles.values()].filter(t => t.id !== tiles[0].id)); // remove all other tiles from Cells
-                else if ([...tiles.values()].every(t => t.I === tiles[0].J || t.J === tiles[0].J)) // all maJor cells are the same
-                    Tiles.remove([...tiles[0].J.tiles.values()].filter(t => t.id !== tiles[0].id)); // remove all other tiles from Cells
+                // tiles[0].c.forEach(c => [...tiles.values()].every(t => t.c.includes(c)) && Tiles.remove([...c.tiles.values()].filter(t => t.id !== c.id)))
+                // if ([...tiles.values()].every(t => [t.I, t.J].includes(tiles[0].I)))                // if all mInor cells are the same
+                //     Tiles.remove([...tiles[0].I.tiles.values()].filter(t => t.id !== tiles[0].id)); // remove all other tiles from Cells
+                // else if ([...tiles.values()].every(t => [t.I, t.J].includes(tiles[0].J)))           // if all maJor cells are the same
+                //     Tiles.remove([...tiles[0].J.tiles.values()].filter(t => t.id !== tiles[0].id)); // remove all other tiles from Cells
+                // const cells = [...new Set(tiles.map(t => [t.I, t.J]).flat())];
+                // if (tiles.length === 2 && cells.length === 4) {                                                                                                             // If there's 2 (and only 2) equivalent tiles not sharing a cell (A)
+                    
+                //     tiles.map(t => 'IJ'.split('').map(c => [...t[c].tiles.values()].filter(f => f !== t)).flat())                                                           // get all other tiles
+                //         .map((t, ix, s) => t.filter(i => s[(ix + 1) % 2].map(j => j.id).includes(i.id) && Tiles.t.get(i.id).length === 2)).flat()                           // check if there some with 1 (and only 1) other equivalent tile (B)
+                //         .forEach(t =>
+                //             cells.map(c => {Game.getDomElement(c.gameReference).css("background", "blue"); return c;} )
+                //                 .map(c => {
+                //                     if(c === t.I || c === t.J) {
+                //                         const remTiles = [...c.tiles.values()].filter(ft => ft !== t && !tiles.includes(ft));
+                //                         debugger;
+                //                         Tiles.remove(remTiles);
+
+                //                     }
+                //                     return c; 
+                //                 }) 
+                //                 .map(c => {Game.getDomElement(c.gameReference).css("background", ""); return c })
+                //         ); // so, remove all other tiles on A and B intersections
+                // }
             }
         },
         remove: function (tiles) {
@@ -67,11 +90,9 @@ DominosaSolver = (function () {
             else
                 tile.J.gameReference.status.type = 'tile';
             Tiles.print(tile, 0);
-            tile.I.tiles.forEach(t => Cells.remove(t));
-            tile.J.tiles.forEach(t => Cells.remove(t));
-            tile.I.tiles.clear();
-            tile.J.tiles.clear();
+            tile.c.forEach(c => { c.t.forEach(t =>Cells.remove(t)); c.tiles.clear() });
             Tiles.remove(Tiles.t.get(tile.id));
+            Tiles.t.delete(tile.id);
         }
     };
     Array(height ** 2).fill().forEach((e, i) => {
@@ -97,50 +118,54 @@ DominosaSolver = (function () {
                 l: col > 0 && Cells.c[i - 1],
                 d: row < height - 1 && Cells.c[i + width],
                 c: null, //Cluster
-                tiles: new Map()
+                tiles: new Map(),
+                t: []
             });
         },
         remove: function (tile) {
             if (Tiles.t.has(tile.id))
                 Tiles.t.set(tile.id, Tiles.t.get(tile.id).filter(t => t !== tile));
-            tile.I.tiles.delete(tile.d);
-            tile.J.tiles.delete(tile.o);
+            tile.c.forEach((c, i) => { c.tiles.delete([tile.d, tile.o][i]); c.t = [...c.tiles.values()] });
         },
         check: function (cell) {
             Game.getDomElement(cell.gameReference).css({ "background-color": '' });
-            if (cell.tiles.size === 1)
-                Tiles.pin([...cell.tiles.values()][0]);
-            else if (cell.tiles.size === 2) {
-                const tiles = [...cell.tiles.values()],
-                    oCells = tiles.map(t => t.I != cell && t.I || t.J != cell && t.J);
-                oCells[0].tiles.forEach(t => t.id === tiles[1].id && t !== tiles[0] && Tiles.remove([t])); // Remove tiles that force duplicate selection
-                oCells[1].tiles.forEach(t => t.id === tiles[0].id && t !== tiles[1] && Tiles.remove([t]));
-            }
-            else {
-                const tilesIds = [...cell.tiles.values()].map(t => t.id),
-                    uniqueTile = [...cell.tiles.values()].find((t, i, s) => s.filter( f => f.id === t.id ).length === 1);
-                if ([...new Set(tilesIds)].length === 2 && uniqueTile && uniqueTile.I.v === uniqueTile.J.v) {
-                    const oCell = uniqueTile.I === cell ? uniqueTile.J : uniqueTile.I,
-                        repeatedTilesId = [...new Set(tilesIds)].filter(t => t !== uniqueTile.id)[0];
-                    oCell.tiles.forEach(t => t.id === repeatedTilesId && Tiles.remove([t])); // Remove tiles that force duplicate selection
+            if (cell.tiles.size > 0) {
+                if (cell.tiles.size === 1)
+                    Tiles.pin(cell.t[0]);
+                else if (cell.tiles.size === 2) {
+                    // const ec = cell.t.map(t => t.c).flat().find(c => c.v === cell.v && c !== cell),
+                    //     dc = cell.t.map(t => t.c).flat().find(c => c.v !== cell.v); //cell.t.map(t => t.I !== cell && t.I || t.J !== cell && t.J);
+                    // 'ruld'.split('').forEach(d => ec && ec[d] && dc && ec[d].v === dc.v )
+                    //oCells.forEach(oc => 'ruld'.split('').forEach(d => oc[d] !== cell && oCells.some(c => c.v !== cell.v && c.v === oc[d].v ) && Tiles.remove([oc.tiles[d]]) ) )
+                    // oCells[0].t.forEach(t => t.id === cell.t[1].id && t !== cell.t[0] && Tiles.remove([t])); // Remove tiles that force duplicate selection
+                    // oCells[1].t.forEach(t => t.id === cell.t[0].id && t !== cell.t[1] && Tiles.remove([t]));
                 }
-            }
-            if (cell.tiles.size > 1) {
-                const tiles = [...cell.tiles.values()],
-                    distinctIds = [... new Set(tiles.map(t => t.id))].sort();
-                if (distinctIds.length === 1) // if all tiles of a cell are equivalents
-                    Tiles.remove(Tiles.t.get(tiles[0].id).filter(t => !tiles.includes(t))); // remove all other tiles from Tiles
-                else if (distinctIds.length === 2) {
-                    const sameValueCells = Cells.c.filter(c => c.v === cell.v && !cell.gameReference.status.tile && c !== cell); // If another cell have equivalent tiles set remove all other tiles from Tiles
-                    let tilesToFilter = [tiles];
-                    sameValueCells.forEach(svc => {
-                        const otherCellsTiles = [...svc.tiles.values()];
-                        if ([...new Set(otherCellsTiles.map(t => t.id))].sort().join() === distinctIds.join())
-                            tilesToFilter = tilesToFilter.push(otherCellsTiles)
-                    })
-                    if (tilesToFilter.length === distinctIds.length)
-                        distinctIds.forEach(dt => Tiles.remove(Tiles.t.get(dt).filter(t => !tilesToFilter.flat().includes(t))))
-                }
+                //else {
+                    // const tilesIds = [...cell.tiles.values()].map(t => t.id),
+                    //     uniqueTile = [...cell.tiles.values()].find((t, i, s) => s.filter( f => f.id === t.id ).length === 1);
+                    // if ([...new Set(tilesIds)].length === 2 && uniqueTile && uniqueTile.I.v === uniqueTile.J.v) {
+                    //     const oCell = uniqueTile.I === cell ? uniqueTile.J : uniqueTile.I,
+                    //         repeatedTilesId = [...new Set(tilesIds)].filter(t => t !== uniqueTile.id)[0];
+                    //     oCell.tiles.forEach(t => t.id === repeatedTilesId && Tiles.remove([t])); // Remove tiles that force duplicate selection
+                    // }
+                //}
+                //if (cell.tiles.size > 1) {
+                    // const tiles = [...cell.tiles.values()],
+                    //     distinctIds = [... new Set(tiles.map(t => t.id))].sort();
+                    // if (distinctIds.length === 1) // if all tiles of a cell are equivalents
+                    //     Tiles.remove(Tiles.t.get(tiles[0].id).filter(t => !tiles.includes(t))); // remove all other tiles from Tiles
+                    // else if (distinctIds.length === 2) {
+                    //     const sameValueCells = Cells.c.filter(c => c.v === cell.v && !cell.gameReference.status.tile && c !== cell); // If another cell have equivalent tiles set remove all other tiles from Tiles
+                    //     let tilesToFilter = [tiles];
+                    //     sameValueCells.forEach(svc => {
+                    //         const otherCellsTiles = [...svc.tiles.values()];
+                    //         if ([...new Set(otherCellsTiles.map(t => t.id))].sort().join() === distinctIds.join())
+                    //             tilesToFilter = tilesToFilter.push(otherCellsTiles)
+                    //     })
+                    //     if (tilesToFilter.length === distinctIds.length)
+                    //         distinctIds.forEach(dt => Tiles.remove(Tiles.t.get(dt).filter(t => !tilesToFilter.flat().includes(t))))
+                    // }
+                //}
             }
         }
     }
@@ -167,10 +192,10 @@ DominosaSolver = (function () {
                 next = cell;
             function opp(d) { return 'ldru'['ruld'.indexOf(d)] }
 
-            let color = '#' + Array(3).fill().map(clt => ((30 + Math.random() * 200) >> 0).toString(16)).join('')
+            //let color = '#' + Array(3).fill().map(clt => ((30 + Math.random() * 200) >> 0).toString(16)).join('')
             do {
-                Game.getDomElement(next.gameReference).css({ "background-color": color });
-                if (exits.length === 1) debugger;
+                //Game.getDomElement(next.gameReference).css({ "background-color": color });
+                //if (exits.length === 1) debugger;
                 if (next.tiles.has(l)) {                                                    //  If can move on the last direction
                     if (!next[l].tiles.has(f) || !next[f].tiles.has(l)) {                   //      If can't move to diagonal "last direction" + "following direction"
                         exits.push({ cell: next, ds: l });                                  //          Mark exit on last direction
@@ -219,17 +244,46 @@ DominosaSolver = (function () {
         }
     };
     let Block = {
-        check: function(tile, block) {
-            const oTiles = Array.concat( [...tile.I.tiles.values()].find(t => t !== tile);
-            if(tile.I.tiles.size === 2){
-                
+        check: function (tile){
+            let block = [tile];
+            if (Block.add(tile, block)){
+                Tiles.remove([tile]);
             }
+            block.forEach(t => {
+                Game.getDomElement(t.I.gameReference).css({"background-color": ''});
+                Game.getDomElement(t.J.gameReference).css({"background-color": ''});
+            });
+        },
+        add: function (tile, block) {
+            let ret = false;
+            let color = '#' + Array(3).fill().map(clt => ((30 + Math.random() * 200) >> 0).toString(16)).join('')
+            Game.getDomElement(tile.I.gameReference).css({"background-color": color});
+            Game.getDomElement(tile.J.gameReference).css({"background-color": color});
+            
+            const blockCells = block.map(t => [t.I, t.J]).flat();
+                oTiles = [].concat([...tile.I.tiles.values()].filter(t => !blockCells.includes(t.I) || !blockCells.includes(t.J)), [...tile.J.tiles.values()].filter(t => !blockCells.includes(t.I) || !blockCells.includes(t.J))),
+                oCells = oTiles.map(t => t.I !== tile.I && t.I !== tile.J ? t.I : t.J);
+            oCells.some(c => {
+                const oTile = [...c.tiles.values()].filter(t => !blockCells.includes(t.I) && !blockCells.includes(t.J));
+                if (oTile.length === 1) {
+                    if (block.some(t => t.id === oTile[0].id && t !== oTile[0])){
+                        ret = true;
+                    }
+                    else if (!block.some(t => t === oTile[0])){
+                        block.push(oTile[0]);
+                        ret = Block.add(oTile[0], block);
+                    }
+                }
+                return ret;
+            });
+            return ret;
         }
     };
     let check = function () {
         Tiles.t.forEach(t => Tiles.check(t));
-        Cells.c.forEach(c => Cells.check(c));
-        Cells.c.forEach(c => Cluster.check(c));
+        Cells.c.forEach(c => Cells.check(c)); 
+        //Cells.c.forEach(c => Cluster.check(c));
+        //Tiles.t.forEach(ta => ta.forEach( t => Block.check(t) ));
     }
     for (let i = 0; i < width; i++) check();
     return { Tiles: Tiles, Cells: Cells, check: check }
