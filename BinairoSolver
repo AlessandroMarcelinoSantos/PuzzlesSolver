@@ -1,0 +1,99 @@
+$('#btCont').css("display", "none");
+$('#Skyscraper').css("display", "none");
+$('#MainContainer').css("position", "absolute");
+Solver = (function(){ // 9371393
+    const width = Game.task.length, height = Game.task[0].length, length = width * height;
+    let Board = {
+        cells: [], 
+        rows: Array(height).fill().map(r => []),
+        cols: Array(width).fill().map(c => []),
+        push: function(task, row, col){
+            let cell = {
+                gameReference: {row: row, col: col},
+                status: [0, 2, 1][task + 1]
+            }
+            Board.cells.push(cell);
+            Board.rows[row].push(cell);
+            Board.cols[col].push(cell);
+        },
+        check: function(rc, rcs){
+            let again = true, map = rc.map(n => n.status).join('');
+            const l = rc.length;
+            while (again) {
+                again = false;
+                rc.forEach((cell, i) => {
+                    function matches(map, patterns){
+                        let r = [];
+                        patterns.forEach(p => r = r.concat(map.match(new RegExp(p, 'g'))).filter(f => f));
+                        return r;
+                    }
+                    map = rc.map(n => n.status).join('');
+                    const c = cell.status,
+                        k = rc.filter(n => n.status === 1).length,
+                        w = rc.filter(n => n.status === 2).length,
+                        mk = matches(map, ['1', '(?<!(0|2))2001', '1002(?!0)', '(?<!0)2002(?!0)', '(?<!02)000(?!20)', '020', '^002(?!0)', '(?<!0)200$']).length,
+                        mw = matches(map, ['2', '(?<!(0|1))1002', '2001(?!0)', '(?<!0)1001(?!0)', '(?<!01)000(?!10)', '010', '^001(?!0)', '(?<!0)100$']).length,
+                        ret = (   c
+                            || (map.slice(i, i + 3).match(/022/) || map.slice(i - 1, i + 2).match(/202/) || map.slice(i - 2, i + 1).match(/220/)) && (1)
+                            || (map.slice(i, i + 3).match(/011/) || map.slice(i - 1, i + 2).match(/101/) || map.slice(i - 2, i + 1).match(/110/)) && (2)
+                            //|| w === l / 2 && (1) // all whites
+                            //|| k === l / 2 && (2) // all blacks
+                            || k === l / 2 - 1 && map.slice(i - 2, i + 3).match(/(0|2)000(0|2)/) && (1)
+                            || w === l / 2 - 1 && map.slice(i - 2, i + 3).match(/(0|1)000(0|1)/) && (2)
+                            // || l - k - w === 3 && k < w && map.slice(i - 1, i + 6).match(/1020102/g) && (1)
+                            // || l - k - w === 3 && w < k && map.slice(i - 1, i + 6).match(/2010201/g) && (2)
+                            || mw === l / 2 && ( 
+                                map.match(/^(00002|0001|002|02|01(?!0))/) || map.match(/(20000|1000|200|20|(?<!0)10)$/) && i === l - 1
+                                || map.slice(i - 1, i + 3).match(/2002|201(?!0)/) || map.slice(Math.max(i - 2, 0), i + 2).match(/(?<!0)102/)
+                                || map.slice(i - 1, i + 4).match(/200(01|10)/) || map.slice(i - 3, i + 2).match(/(10|01)002/)
+                            ) && (1)
+                            || mk === l / 2 && (
+                                map.match(/^(00001|0002|001|01|02(?!0))/) || map.match(/(10000|2000|100|10|(?<!0)20)$/) && i === l - 1
+                                || map.slice(i - 1, i + 3).match(/1001|102(?!0)/) || map.slice(Math.max(i - 2, 0), i + 2).match(/(?<!0)201/)
+                                || map.slice(i - 1, i + 4).match(/100(02|20)/) || map.slice(i - 3, i + 2).match(/(20|02)001/)
+                            ) && (2)
+                        ) * 1; Game.getDomElement(cell.gameReference).css("background", ["", "brown", "yellow"][ret]);
+                    if (c !== ret){ debugger;
+                        again = true;
+                        Board.print(cell, ret);
+                    } Game.getDomElement(cell.gameReference).css("background", "");
+                });
+            }
+            const zeros = [...map.matchAll(/0/g)];
+            if (zeros.length === 2 || zeros.length === 3) {              // if row or columns has 2 or 3 zeros
+                rcs.some(orc => { // Other Row or Column
+                    const m = orc.map(n => n.status).join('');
+                    let match;
+                    if (!m.match(/0/g)) {                                // and other row or column are completed
+                        const re = new RegExp(map.replace(/0/g, '.'));
+                        if (match = !!m.match(re)) {                     // and all non zero match each other
+                            zeros.forEach(resi => {                      // replace zeros for oposite status (only the odd one when are 3 zeros)
+                                const i = resi.index;
+                                if (map.match(new RegExp(m[i], 'g')).length === l / 2 - 1) { Game.getDomElement(rc[i].gameReference).css("background", ["", "brown", "yellow"][orc[i].status % 2 + 1]); debugger; 
+                                    Board.print(rc[i], orc[i].status % 2 + 1); Game.getDomElement(rc[i].gameReference).css("background", ""); }
+                            });
+                        }
+                    }
+                    return match;
+                });
+            }
+        },
+        print: function(cell, status){
+            cell.status = status;
+            Game.currentMove = {
+                cellStatus: cell.status, // 1: black, 2: white 
+                cells: [cell.gameReference],
+                endPoint: cell.gameReference,
+                startPoint: cell.gameReference
+            }
+            Game.drawCurrentMove();
+            Game.applyCurrentMoveToState();
+        }
+    }
+    Game.task.forEach((row, r) => row.forEach((cell, c) => Board.push(cell, r, c)))
+    function check(){
+        Board.rows.forEach(r => Board.check(r, Board.rows));
+        Board.cols.forEach(c => Board.check(c, Board.cols));
+    }
+    for (let i = 0; i < Board.rows.length; i++) check(); //return {check: check, Columns: Board.cols, Rows: Board.rows}
+})()
