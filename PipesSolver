@@ -1,7 +1,7 @@
 $('#btCont').css("display", "none");
 $('#Skyscraper').css("display", "none");
 $('#MainContainer').css("position", "absolute");
-PipesSolver = (function () {/*/let getPipe = function (id) { return Pipes.p.find(p => p.id === id); }/***/
+Solver = (function () {/*/let getPipe = function (id) { return Pipes.p.find(p => p.id === id); }/***/
     const height = Game.task.length,
         width = Game.task[0].length,
         length = height * width,

@@ -2,7 +2,7 @@
 $('#btCont').css("display", "none");
 $('#Skyscraper').css("display", "none");
 $('#MainContainer').css("position", "absolute");
-DominosaSolver = (function () {
+Solver = (function () {
     const height = Game.task.length, width = Game.task[0].length, length = width * height;
     let Tiles = {
         t: new Map(),
