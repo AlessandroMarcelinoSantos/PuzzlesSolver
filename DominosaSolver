@@ -1,8 +1,5 @@
-//9985070
-$('#btCont').css("display", "none");
-$('#Skyscraper').css("display", "none");
-$('#MainContainer').css("position", "absolute");
-Solver = (function () {
+$('#btCont').css("display", "none"); $('#Skyscraper').css("display", "none"); $('#MainContainer').css("position", "absolute");
+Solver = (function () { //9985070
     const height = Game.task.length, width = Game.task[0].length, length = width * height;
     let Tiles = {
         t: new Map(),
