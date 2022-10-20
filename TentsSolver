@@ -1,0 +1,85 @@
+$('#btCont').css("display", "none"); $('#Skyscraper').css("display", "none"); $('#MainContainer').css("position", "absolute");
+Solver = (function () {
+    let size = Game.task.length / 2;
+    let Task = {
+        rows: Game.task.slice(size).map(t => t * 1),
+        cols: Game.task.slice(0, size).map(t => t * 1)
+    }
+    let Board = {
+        rows: new Array(size).fill().map(c => []),
+        cols: new Array(size).fill().map(c => []),
+        push: function (row, col, tree) {
+            const cell = { 
+                gameReference: { row: row, col: col, type: 'center' }, 
+                status: tree * 3,
+                neighbors: new Map()
+            }
+            Board.rows[row].push(cell);
+            Board.cols[col].push(cell);
+        },
+        assignNeighbors: function(){
+            Board.rows.forEach((row, r) => {
+                row.forEach((cell, c) => {
+                    r > 0 && cell.neighbors.set("u", Board.rows[r - 1][c]);
+                    r < size - 1 && cell.neighbors.set("d", Board.rows[r + 1][c]);
+                    c > 0 && cell.neighbors.set("l", Board.rows[r][c - 1]);
+                    c < size - 1 && cell.neighbors.set("r", Board.rows[r][c + 1]);
+                })
+            });
+        },
+        fieldCheck: function(){
+            Board.rows.forEach(row => 
+                row.forEach(cell => {
+                    if (cell.status === 3){
+                        cell.neighbors.forEach( (d, n) => n.status === 3 && cell.neighbors.delete(d) ); // Delete neighbor if it is a tree also
+                    }
+                    const ns = [...cell.neighbors.values()];
+                    if ( !cell.status && ns.every(n => n.status !== 3) ){ // Define it as a field if there isn't a tree around
+                        cell.status = 2;
+                        Board.print(cell);
+                    }
+                })
+            );
+        },
+        treesCheck: function(){
+            Board.rows.forEach(row => 
+                row.forEach(cell => {
+                    const ns = [...cell.neighbors.values()];
+                    if ( cell.status === 3 && ns.filter(n => n.status <= 1).length === 1 ){
+                        ns.forEach(n => n.status === 0 && (n.status = 1) && Board.print(cell));
+                    }
+                })
+            );
+        },
+        check: function(sequence, task, i){
+            if ( sequence.filter(cell => cell.status === 1).length === task ){ // If task is done define all empty cells as fields
+                sequence.forEach(cell => {
+                    debugger;
+                    !cell.status && (cell.status = 2) && Board.print(cell);
+                });
+            }
+        },
+        print: function(cell){
+            Game.currentMove = {
+                cellColor: -1,
+                cellStatus: cell.status,
+                cells: [cell.gameReference],
+                endPoint: cell.gameReference,
+                startPoint: cell.gameReference
+            }
+            Game.drawCurrentMove();
+            Game.applyCurrentMoveToState();
+        }
+    }
+    Game.trees.forEach((row, r) => row.forEach((cell, c) => Board.push(r, c, cell)));
+    Board.assignNeighbors();
+    Board.fieldCheck();
+    
+    function check(){
+        Task.rows.forEach( (t, i) => Board.check(Board.rows[i], t, i) );
+        Task.cols.forEach( (t, i) => Board.check(Board.cols[i], t, i) );
+    }
+    check();
+
+    return {check: check};
+})();
