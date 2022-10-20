@@ -20,41 +20,39 @@ Solver = (function(){ // 9371393
                             ret = ( s
                                 || (map.slice(i, i + 3) === '022' || map.slice(i - 1, i + 2) === '202' || map.slice(i - 2, i + 1) === '220') && 1
                                 || (map.slice(i, i + 3) === '011' || map.slice(i - 1, i + 2) === '101' || map.slice(i - 2, i + 1) === '110') && 2
-                                || seq.filter(n => n.status === 1).length === l / 2 - 1 && map.slice(i - 2, i + 3).match(/00000|00002|00020|02000|02002|20000|20002|20020|02001|10020/) && 1
-                                || seq.filter(n => n.status === 2).length === l / 2 - 1 && map.slice(i - 2, i + 3).match(/00000|00001|00010|01000|01001|10000|10001|10010|01002|20010/) && 2
-                                || map.match(/2|010|001(?!0)|100(?!10)|000(?!10)/g).length === l / 2 && ( // all whites
-                                    i === 0 && map.match(/^(02|002|012|0001|0010|00002)/) || i === l - 1 && map.match(/(20|200|210|1000|0100|20000)$/)
-                                    || map.slice(i - 1, i + 3).match(/2002|201(?!0)/) || map.slice(Math.max(i - 2, 0), i + 2).match(/(?<!0)102/) //20100
-                                    || map.slice(i - 1, i + 5).match(/20001.|20010.|200002/) || map.slice(i - 3, i + 2).match(/10002|01002/)
+                                || seq.filter(n => n.status === 1).length === l / 2 - 1 && map.slice(i - 2, i + 3).match(/(00|02|20)0(00|02|20)/) && 1 // 00000|00002|00020|02000|02002|20000|20002|20020
+                                || seq.filter(n => n.status === 2).length === l / 2 - 1 && map.slice(i - 2, i + 3).match(/(00|01|10)0(00|01|10)/) && 2
+                                || map.match(/2|010|001(?!0)|(1|0)00(?!10)/g).length === l / 2 && ( // all possible whites // 2|010|001(?!0)|000(?!10)|100(?!10)
+                                    i === 0 && map.match(/^0(2|12|0(2|01|10|002))/) || i === l - 1 && map.match(/(2|21|(2|10|01|200)0)0$/) // ^02|012|002|0001|0010|00002
+                                    || map.slice(i - 1, i + 3).match(/2002|201(?!0)/) || map.slice(Math.max(i - 2, 0), i + 2).match(/(?<!0)102/)
+                                    || map.slice(i - 1, i + 5).match(/200(002|01.?|10.?)/) || map.slice(i - 3, i + 2).match(/(10|01)002/) // 200002|20001.?|20010.?
                                 ) && 1
-                                || map.match(/1|020|002(?!0)|200(?!20)|000(?!20)/g).length === l / 2 && ( // all blacks
-                                    i === 0 && map.match(/^(01|001|021|0002|0020|00001)/) || i === l - 1 && map.match(/(10|100|120|2000|0200|10000)$/)
+                                || map.match(/1|020|002(?!0)|(2|0)00(?!20)/g).length === l / 2 && ( // all possible blacks
+                                    i === 0 && map.match(/^0(1|21|0(1|02|20|001))/) || i === l - 1 && map.match(/(1|12|(1|20|02|100)0)0$/)
                                     || map.slice(i - 1, i + 3).match(/1001|102(?!0)/) || map.slice(Math.max(i - 2, 0), i + 2).match(/(?<!0)201/)
-                                    || map.slice(i - 1, i + 5).match(/10002.|10020.|100001/) || map.slice(i - 3, i + 2).match(/20001|02001/)
-                                ) && 2 //20010
-                            ) * 1;// Game.getDomElement(cell.gameReference).css("background", ["", "brown", "yellow"][ret]);
-                        if (s !== ret)// { debugger;
-                            again = changed = Board.print(cell, ret)//} Game.getDomElement(cell.gameReference).css("background", "");
+                                    || map.slice(i - 1, i + 5).match(/100(001|02.?|20.?)/) || map.slice(i - 3, i + 2).match(/(20|02)001/)
+                                ) && 2
+                            ) * 1;
+                        if (s !== ret) { Game.getDomElement(cell.gameReference).css("background", ["", "brown", "yellow"][ret]); debugger;
+                            again = changed = Board.print(cell, ret); Game.getDomElement(cell.gameReference).css("background", "")}
                     });
                 }
                 const zeros = [...map.matchAll(/0/g)];
-                if (zeros.length === 2 || zeros.length === 3) {              // if sequence (A) has 2 or 3 zeros 
+                if (zeros.length === 2 || zeros.length === 3)                // if sequence (A) has 2 or 3 zeros 
                     sequences.some(orc => { // Other Row or Column
                         const m = orc.map(n => n.status).join('');
                         let match = false;
                         if (!m.match(/0/g)) {                                // and other sequence (B) is completed
                             const re = new RegExp(map.replace(/0/g, '.'));
-                            if (match = !!m.match(re)) {                     // and all non zero cells match each other between A and B
+                            if (match = !!m.match(re))                       // and all non zero cells match each other between A and B
                                 zeros.forEach(resi => {                      // replace zeros on A for oposite status of related cell on B (only the odd one when are 3 zeros)
                                     const i = resi.index;
-                                    if (map.match(new RegExp(m[i], 'g')).length === l / 2 - 1)// { Game.getDomElement(seq[i].gameReference).css("background", ["", "brown", "yellow"][orc[i].status % 2 + 1]); debugger; 
-                                        changed = Board.print(seq[i], orc[i].status % 2 + 1)//; Game.getDomElement(seq[i].gameReference).css("background", ""); }
+                                    if (map.match(new RegExp(m[i], 'g')).length === l / 2 - 1) { Game.getDomElement(seq[i].gameReference).css("background", ["", "brown", "yellow"][orc[i].status % 2 + 1]); debugger; 
+                                        changed = Board.print(seq[i], orc[i].status % 2 + 1); Game.getDomElement(seq[i].gameReference).css("background", ""); }
                                 });
-                            }
                         }
                         return match;
                     });
-                }
                 return !changed;
             })
         },
@@ -72,6 +70,5 @@ Solver = (function(){ // 9371393
         }
     }
     Game.task.forEach((row, r) => row.forEach((cell, c) => Board.push(cell, r, c)))
-    while (!Board.check(Board.rows) || !Board.check(Board.cols));
-    Game.draw(); //Game.check();
+    while (!Board.check(Board.rows) || !Board.check(Board.cols)); /*/ repeat until there is no changes /**//**/ Game.draw(); /**//*/Game.check();/**/
 })()
